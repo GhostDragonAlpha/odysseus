@@ -510,7 +510,7 @@ class GameDevWorkflow:
             f"**Scenario:** {cycle.scenario}",
             f"**Started:** {cycle.started_at}",
             f"**Completed:** {cycle.completed_at}",
-            f"**Passed:** {'✅ YES' if cycle.passed else '❌ NO'}",
+            f"**Passed:** {'PASSED' if cycle.passed else 'FAILED'}",
             f"",
             f"## Phases Completed",
         ]
@@ -531,7 +531,7 @@ class GameDevWorkflow:
                 if issue.proposed_fix:
                     report_lines.append(f"  - Fix: {issue.proposed_fix}")
         else:
-            report_lines.append("No issues found! 🎉")
+            report_lines.append("No issues found!")
 
         report_lines.append(f"\n## Fixes Applied ({len(cycle.fixes)})")
         for fix in cycle.fixes:
@@ -541,7 +541,7 @@ class GameDevWorkflow:
 
         # Save to disk
         report_path = LOOP_LOG_DIR / f"{cycle.cycle_id}.md"
-        report_path.write_text(report)
+        report_path.write_text(report, encoding="utf-8")
 
         cycle.report = report
         return report
@@ -589,13 +589,14 @@ class GameDevWorkflow:
             self.current_cycle.fixes = fixes
             self.current_cycle.phases.append("fix")
 
-            # 7. Report
-            await self.report(self.current_cycle)
-            self.current_cycle.phases.append("report")
-
-            # Determine pass/fail
+            # Determine pass/fail (BEFORE report so report is accurate)
             critical_issues = [i for i in issues if i.severity == "critical"]
             self.current_cycle.passed = len(critical_issues) == 0
+
+            # 7. Report
+            self.current_cycle.completed_at = datetime.now(timezone.utc).isoformat()
+            await self.report(self.current_cycle)
+            self.current_cycle.phases.append("report")
 
         except Exception as e:
             self.current_cycle.error = str(e)
