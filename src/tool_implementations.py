@@ -4738,3 +4738,35 @@ async def do_vault_unlock(content: str, owner: Optional[str] = None) -> Dict:
         pass
 
     return {"output": "Vault unlocked. Session saved.", "exit_code": 0}
+
+
+# ── Game Dev Automation ──
+
+async def do_gamedev_cycle(content: str, owner: Optional[str] = None) -> Dict:
+    """Run an automated game dev cycle: preflight → build → playtest →
+    capture → gallery → analyze → fix → report."""
+    import json as _json
+    from src.gamedev_workflow import run_gamedev_cycle
+
+    try:
+        args = _parse_tool_args(content) if content.strip().startswith("{") else {}
+    except ValueError:
+        args = {}
+    if not isinstance(args, dict):
+        args = {}
+
+    scenario = args.get("scenario", "FullFlight")
+    continuous = args.get("continuous", False)
+    max_cycles = min(args.get("max_cycles", 5), 10)
+
+    try:
+        result = await run_gamedev_cycle(
+            scenario=scenario,
+            continuous=continuous,
+            max_cycles=max_cycles,
+            owner=owner,
+        )
+        return result
+    except Exception as e:
+        return {"error": f"Game dev cycle failed: {e}", "exit_code": 1}
+

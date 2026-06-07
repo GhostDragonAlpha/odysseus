@@ -59,6 +59,8 @@ TOOL_TAGS = {"bash", "python", "web_search", "web_fetch", "read_file", "write_fi
              "edit_image", "trigger_research", "manage_research",
              # Gallery / screenshot workflow tools
              "gallery_add", "gallery_list", "gallery_view",
+             # Game dev automation workflow
+             "gamedev_cycle",
              # Generic loopback to any UI-button endpoint (cookbook,
              # gallery, email folders, etc.) — agent uses this when
              # there's no named tool wrapper for the action.

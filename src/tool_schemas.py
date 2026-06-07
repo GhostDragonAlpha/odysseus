@@ -1230,8 +1230,22 @@ FUNCTION_TOOL_SCHEMAS = [
             }
         }
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "gamedev_cycle",
+            "description": "Run an automated game development cycle: preflight → build → playtest → capture screenshots to gallery → vision analysis → fix issues → report. Use for automated QA and visual testing of Unreal Engine games. Supports continuous mode for multi-cycle automation.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "scenario": {"type": "string", "description": "Test scenario name (e.g. FullFlight, Combat, OrbitalInsertion). Default: FullFlight"},
+                    "continuous": {"type": "boolean", "description": "Run continuously until all criteria pass or max_cycles reached (default: false)"},
+                    "max_cycles": {"type": "integer", "description": "Max cycles in continuous mode (default: 5, max: 10)"},
+                }
+            }
+        }
+    },
 ]
-
 
 # ---------------------------------------------------------------------------
 # Converter: native function call -> ToolBlock

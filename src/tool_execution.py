@@ -1157,6 +1157,7 @@ async def execute_tool_block(
         do_vault_search, do_vault_get, do_vault_unlock,
         do_app_api,
         do_gallery_add, do_gallery_list, do_gallery_view,
+        do_gamedev_cycle,
     )
 
     tool = block.tool_type
@@ -1449,6 +1450,9 @@ async def execute_tool_block(
     elif tool == "gallery_view":
         desc = "gallery_view"
         result = await do_gallery_view(content, owner=owner)
+    elif tool == "gamedev_cycle":
+        desc = "gamedev_cycle"
+        result = await do_gamedev_cycle(content, owner=owner)
     elif tool == "edit_file":
         result = await _do_edit_file(content, workspace=workspace)
         desc = result.get("output") or result.get("error") or "edit_file"
