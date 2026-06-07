@@ -1178,6 +1178,58 @@ FUNCTION_TOOL_SCHEMAS = [
             }
         }
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "gallery_add",
+            "description": "Add a base64-encoded image or screenshot to the gallery. Use after taking a screenshot or generating an image to save it for later viewing and editing.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "image_b64": {"type": "string", "description": "Base64-encoded image data (without data URI prefix)"},
+                    "filename": {"type": "string", "description": "Optional filename with extension (e.g. 'screenshot.png'). Defaults to auto-generated."},
+                    "prompt": {"type": "string", "description": "Optional label/prompt describing the image"},
+                    "album_id": {"type": "string", "description": "Optional album ID to add the image to"},
+                    "mime_type": {"type": "string", "description": "MIME type, e.g. 'image/png' or 'image/jpeg'. Default: image/png"},
+                },
+                "required": ["image_b64"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "gallery_list",
+            "description": "List images in the gallery. Search by text, filter by tag/model/album, or get recent images.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "search": {"type": "string", "description": "Search term to filter images by prompt or tags"},
+                    "tag": {"type": "string", "description": "Filter by tag"},
+                    "album": {"type": "string", "description": "Filter by album ID"},
+                    "favorites": {"type": "boolean", "description": "Show only favorites"},
+                    "sort": {"type": "string", "enum": ["recent", "oldest", "shuffle"], "description": "Sort order (default: recent)"},
+                    "limit": {"type": "integer", "description": "Max results (default: 24, max: 100)"},
+                    "offset": {"type": "integer", "description": "Pagination offset (default: 0)"},
+                }
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "gallery_view",
+            "description": "View a specific gallery image with its full metadata, AI tags, and the image data itself for visual inspection.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "image_id": {"type": "string", "description": "ID of the gallery image to view"},
+                    "include_image_data": {"type": "boolean", "description": "Include base64 image data in response for visual analysis (default: true)"},
+                },
+                "required": ["image_id"]
+            }
+        }
+    },
 ]
 
 

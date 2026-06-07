@@ -4027,6 +4027,284 @@ async def do_edit_image(content: str, owner: Optional[str] = None) -> Dict:
         return {"error": str(e), "exit_code": 1}
 
 
+# ── Gallery / Screenshot workflow tools ──
+
+async def do_gallery_add(content: str, owner: Optional[str] = None) -> Dict:
+    """Add a base64 image or screenshot to the gallery.
+    JSON args: {image_b64, filename?, prompt?, album_id?, mime_type?}"""
+    import httpx, base64, uuid, json as _json
+    from pathlib import Path
+    from io import BytesIO
+
+    try:
+        args = _parse_tool_args(content)
+    except ValueError:
+        return {"error": "Invalid JSON arguments", "exit_code": 1}
+
+    image_b64 = args.get("image_b64", "")
+    if not image_b64:
+        return {"error": "image_b64 is required", "exit_code": 1}
+
+    # Strip data URI prefix if present
+    if "," in image_b64 and image_b64.startswith("data:"):
+        image_b64 = image_b64.split(",", 1)[1]
+
+    try:
+        img_bytes = base64.b64decode(image_b64)
+    except Exception:
+        return {"error": "Invalid base64 image data", "exit_code": 1}
+
+    mime_type = args.get("mime_type", "image/png")
+    ext = mime_type.split("/")[-1] if "/" in mime_type else "png"
+    filename = args.get("filename") or f"{uuid.uuid4().hex[:12]}.{ext}"
+    if "." not in filename:
+        filename = f"{filename}.{ext}"
+
+    # Upload to gallery via the internal API
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            files = {"file": (filename, BytesIO(img_bytes), mime_type)}
+            data = {}
+            prompt = args.get("prompt", "")
+            if prompt:
+                data["prompt"] = prompt
+            album_id = args.get("album_id", "")
+            if album_id:
+                data["album_id"] = album_id
+            resp = await client.post(
+                "http://localhost:7000/api/gallery/upload",
+                files=files, data=data,
+                cookies={"odysseus_session": "loopback"},
+            )
+            if resp.status_code == 401:
+                # Fallback: save directly to disk + DB
+                return await _gallery_add_direct(img_bytes, filename, prompt, owner)
+            result = resp.json()
+        if result.get("ok") or result.get("duplicate"):
+            img_id = result.get("id", "unknown")
+            img_url = f"/api/generated-image/{result.get('filename', filename)}"
+            if result.get("duplicate"):
+                return {"output": f"Duplicate detected — image already in gallery (id={img_id}, url={img_url})", "exit_code": 0}
+            return {"output": f"Image added to gallery (id={img_id}, url={img_url})", "exit_code": 0}
+        return {"error": result.get("message", "Upload failed"), "exit_code": 1}
+    except Exception as e:
+        # Direct fallback
+        return await _gallery_add_direct(img_bytes, filename, prompt, owner)
+
+
+async def _gallery_add_direct(img_bytes: bytes, filename: str, prompt: str, owner: Optional[str] = None) -> Dict:
+    """Save image directly to disk and create gallery DB record (bypasses HTTP auth)."""
+    import uuid, hashlib, json as _json
+    from pathlib import Path
+
+    try:
+        img_dir = Path("data/generated_images")
+        img_dir.mkdir(parents=True, exist_ok=True)
+
+        file_hash = hashlib.sha256(img_bytes).hexdigest()
+        safe_name = Path(filename).name
+        if not safe_name or safe_name in {".", ".."}:
+            safe_name = f"{uuid.uuid4().hex[:12]}.png"
+        img_path = img_dir / safe_name
+        # Avoid overwriting — append suffix if needed
+        if img_path.exists():
+            stem, ext_part = (safe_name.rsplit(".", 1) + [""])[:2]
+            img_path = img_dir / f"{stem}_{uuid.uuid4().hex[:6]}.{ext_part or 'png'}"
+        img_path.write_bytes(img_bytes)
+
+        # Determine dimensions if possible
+        width, height = None, None
+        try:
+            from PIL import Image
+            from io import BytesIO
+            with Image.open(BytesIO(img_bytes)) as pil:
+                width, height = pil.size
+        except Exception:
+            pass
+
+        from core.database import SessionLocal, GalleryImage
+        db = SessionLocal()
+        try:
+            img_id = str(uuid.uuid4())
+            db.add(GalleryImage(
+                id=img_id,
+                filename=img_path.name,
+                prompt=prompt or safe_name.rsplit(".", 1)[0],
+                model="screenshot",
+                owner=owner,
+                file_hash=file_hash,
+                file_size=len(img_bytes),
+                width=width,
+                height=height,
+            ))
+            db.commit()
+            return {
+                "output": f"Image added to gallery (id={img_id}, file={img_path.name}, {width}x{height})",
+                "image_id": img_id,
+                "filename": img_path.name,
+                "exit_code": 0,
+            }
+        finally:
+            db.close()
+    except Exception as e:
+        return {"error": f"Gallery direct save failed: {e}", "exit_code": 1}
+
+
+async def do_gallery_list(content: str, owner: Optional[str] = None) -> Dict:
+    """List gallery images with optional filters."""
+    import httpx, json as _json
+
+    try:
+        args = _parse_tool_args(content) if content.strip().startswith("{") else {}
+    except ValueError:
+        args = {}
+    if not isinstance(args, dict):
+        args = {}
+
+    params = {}
+    for key in ("search", "tag", "album", "sort", "limit", "offset"):
+        if key in args and args[key] is not None:
+            params[key] = args[key]
+    if args.get("favorites"):
+        params["favorites"] = "true"
+
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.get(
+                "http://localhost:7000/api/gallery/library",
+                params=params,
+                cookies={"odysseus_session": "loopback"},
+            )
+            if resp.status_code != 200:
+                return await _gallery_list_direct(args, owner)
+            data = resp.json()
+    except Exception:
+        return await _gallery_list_direct(args, owner)
+
+    items = data.get("items", [])
+    total = data.get("total", 0)
+    if not items:
+        return {"output": f"Gallery is empty ({total} total images).", "exit_code": 0}
+
+    lines = [f"Gallery ({total} images, showing {len(items)}):"]
+    for img in items:
+        dims = f"{img.get('width', '?')}x{img.get('height', '?')}"
+        prompt = (img.get("prompt") or "untitled")[:60]
+        tags = img.get("tags", "") or ""
+        ai_tags = img.get("ai_tags", "") or ""
+        tag_str = f" [tags: {tags}]" if tags else ""
+        ai_str = f" [ai: {ai_tags}]" if ai_tags else ""
+        lines.append(
+            f"- `{img['id']}`: {prompt} ({dims}){tag_str}{ai_str}"
+        )
+    return {"output": "\n".join(lines[:80]), "exit_code": 0, "total": total}
+
+
+async def _gallery_list_direct(args: dict, owner: Optional[str] = None) -> Dict:
+    """List gallery images directly from DB."""
+    from core.database import SessionLocal, GalleryImage
+    db = SessionLocal()
+    try:
+        q = db.query(GalleryImage).filter(GalleryImage.is_active == True)
+        if owner:
+            q = q.filter(GalleryImage.owner == owner)
+        search = args.get("search", "")
+        if search:
+            q = q.filter(GalleryImage.prompt.ilike(f"%{search}%"))
+        tag = args.get("tag", "")
+        if tag:
+            q = q.filter(GalleryImage.tags.ilike(f"%{tag}%"))
+        limit = min(args.get("limit", 24), 100)
+        offset = max(args.get("offset", 0), 0)
+        total = q.count()
+        imgs = q.order_by(GalleryImage.created_at.desc()).offset(offset).limit(limit).all()
+        if not imgs:
+            return {"output": f"Gallery is empty ({total} total).", "exit_code": 0}
+        lines = [f"Gallery ({total} images, showing {len(imgs)}):"]
+        for img in imgs:
+            dims = f"{img.width or '?'}x{img.height or '?'}"
+            prompt = (img.prompt or "untitled")[:60]
+            lines.append(f"- `{img.id}`: {prompt} ({dims})")
+        return {"output": "\n".join(lines[:80]), "exit_code": 0, "total": total}
+    finally:
+        db.close()
+
+
+async def do_gallery_view(content: str, owner: Optional[str] = None) -> Dict:
+    """View a specific gallery image with metadata and optional image data."""
+    import httpx, base64, json as _json
+    from pathlib import Path
+
+    try:
+        args = _parse_tool_args(content)
+    except ValueError:
+        return {"error": "Invalid JSON arguments", "exit_code": 1}
+
+    image_id = args.get("image_id", "")
+    if not image_id:
+        return {"error": "image_id is required", "exit_code": 1}
+    include_data = args.get("include_image_data", True)
+
+    data = None
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.get(
+                f"http://localhost:7000/api/gallery/{image_id}",
+                cookies={"odysseus_session": "loopback"},
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+    except Exception:
+        data = None
+
+    if not data:
+        # Direct DB lookup
+        from core.database import SessionLocal, GalleryImage
+        db = SessionLocal()
+        try:
+            img = db.query(GalleryImage).filter(GalleryImage.id == image_id).first()
+            if not img:
+                return {"error": f"Image {image_id} not found", "exit_code": 1}
+            data = {
+                "id": img.id, "filename": img.filename, "prompt": img.prompt,
+                "width": img.width, "height": img.height,
+                "tags": img.tags, "ai_tags": img.ai_tags,
+                "model": img.model, "created_at": str(img.created_at),
+            }
+        finally:
+            db.close()
+
+    info = (
+        f"Image: {data.get('filename', '?')}\n"
+        f"ID: {data['id']}\n"
+        f"Prompt: {data.get('prompt', 'untitled')}\n"
+        f"Dimensions: {data.get('width', '?')}x{data.get('height', '?')}\n"
+        f"Tags: {data.get('tags', '')}\n"
+        f"AI Tags: {data.get('ai_tags', '')}\n"
+        f"Model: {data.get('model', '?')}\n"
+        f"Created: {data.get('created_at', '?')}"
+    )
+
+    result = {"output": info, "exit_code": 0, "image_id": data["id"]}
+
+    if include_data:
+        filename = data.get("filename", "")
+        img_path = Path("data/generated_images") / filename
+        if img_path.exists():
+            img_bytes = img_path.read_bytes()
+            if len(img_bytes) <= 2 * 1024 * 1024:  # 2MB limit
+                b64 = base64.b64encode(img_bytes).decode()
+                ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "png"
+                mime = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
+                        "webp": "image/webp"}.get(ext, "image/png")
+                result["image_data"] = f"data:{mime};base64,{b64}"
+            else:
+                result["image_data"] = f"[Image too large: {len(img_bytes)} bytes]"
+        else:
+            result["image_data"] = f"[File not found on disk: {filename}]"
+
+    return result
+
 # ── Research tools ──
 
 async def do_manage_research(content: str, owner: Optional[str] = None) -> Dict:
