@@ -622,6 +622,10 @@ app.include_router(setup_signature_routes())
 from routes.gallery_routes import setup_gallery_routes
 app.include_router(setup_gallery_routes())
 
+# Game Development Automation Tools
+from routes.gamedev_routes import setup_gamedev_routes
+app.include_router(setup_gamedev_routes())
+
 # Persisted image-editor drafts (server-backed projects)
 from routes.editor_draft_routes import setup_editor_draft_routes
 app.include_router(setup_editor_draft_routes())
