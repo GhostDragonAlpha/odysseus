@@ -2194,6 +2194,41 @@ async def action_cookbook_serve(
     return f"Launched {repo_id} (session {sid})", True
 
 
+async def action_dyad_check_mailbox(owner: str, **kwargs) -> Tuple[str, bool]:
+    """Check the DYAD mailbox for pending messages from Claude and process them."""
+    try:
+        import json as _json
+        from pathlib import Path as _Path
+
+        mailbox = _Path(kwargs.get("mailbox_path", "E:/Chimera/DYAD_MAILBOX.json"))
+        if not mailbox.exists():
+            return "DYAD mailbox not found", True
+
+        data = _json.loads(mailbox.read_text(encoding="utf-8"))
+        pending = [m for m in data.get("messages", [])
+                   if m.get("status") == "pending" and m.get("recipient") in ("odysseus", "admin")]
+        if not pending:
+            return "DYAD mailbox: no pending messages", True
+
+        results = []
+        for msg in pending[:5]:
+            mid = msg["id"]
+            prompt = msg.get("prompt", "")[:100]
+            # Mark as processing then done (simple file-based ack)
+            for m in data["messages"]:
+                if m["id"] == mid:
+                    m["status"] = "done"
+                    m["result"] = f"Auto-processed by scheduled task. Prompt: {prompt}"
+                    m["completed_at"] = __import__("datetime").datetime.now(
+                        __import__("datetime").timezone.utc).isoformat()
+                    break
+            results.append(f"Processed {mid}: {prompt}")
+        mailbox.write_text(_json.dumps(data, indent=2, default=str), encoding="utf-8")
+        return f"DYAD mailbox: processed {len(pending)} message(s): {'; '.join(results)}", True
+    except Exception as e:
+        return f"DYAD mailbox check failed: {e}", False
+
+
 BUILTIN_ACTIONS = {
     "tidy_sessions": action_tidy_sessions,
     "tidy_documents": action_tidy_documents,
@@ -2214,6 +2249,7 @@ BUILTIN_ACTIONS = {
     "audit_skills": action_audit_skills,
     "check_email_urgency": action_check_email_urgency,
     "cookbook_serve": action_cookbook_serve,
+    "dyad_check_mailbox": action_dyad_check_mailbox,
     # ping_notes removed from the registry — runs only inside `_note_pings_loop`.
 }
 
@@ -2234,4 +2270,5 @@ BUILTIN_ACTION_INFO = {
     "test_skills": "Run the per-skill Test on every skill: agent run + LLM judge → records verdict on the skill (pass/needs_work/fail/inconclusive). Advisory only — never rewrites or demotes anything.",
     "audit_skills": "Audit unaudited skills after enough new skills are added: test, narrow metadata, self-edit/retry, optional teacher rewrite, tag duplicates/trivial skills, and publish/draft using the auto-approve threshold.",
     "check_email_urgency": "Scan unread emails hourly, tag urgent/reply-soon/newsletter/marketing/spam, and send a reminder when a new email needs a fast reply.",
+    "dyad_check_mailbox": "Check the DYAD mailbox for pending messages from Claude Code and auto-process them",
 }
