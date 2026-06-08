@@ -63,6 +63,12 @@ ALWAYS_AVAILABLE = frozenset({
     # Ask the user a multiple-choice question for a decision/clarification.
     # Always reachable so the agent can pause and ask at any point.
     "ask_user",
+    # DYAD mailbox — continuous back-and-forth with Claude Code.
+    "dyad_send", "dyad_receive",
+    # Ask Claude Code directly for complex reasoning / code work.
+    "ask_claude",
+    # Game dev automation — playtest cycles, scenarios, gallery.
+    "gamedev_cycle", "gallery_add", "gallery_list", "gallery_view",
     # Write back to the active plan (tick steps done / revise) during execution.
     "update_plan",
 })
@@ -491,6 +497,19 @@ class ToolIndex:
         frozenset({"write a", "create a doc", "draft", "compose", "poem", "story",
                    "essay", "outline", "letter"}):
             {"create_document", "edit_document", "update_document"},
+        # DYAD mailbox — Claude Code communication
+        frozenset({"dyad", "mailbox", "claude code", "ask claude", "coding agent",
+                   "delegate to claude", "send to claude", "claude task",
+                   "continuous loop", "autonomous dev"}):
+            {"dyad_send", "dyad_receive", "ask_claude"},
+        # Gallery — image browsing
+        frozenset({"gallery", "screenshot", "images", "photos", "show me the",
+                   "view image", "view gallery", "browse gallery"}):
+            {"gallery_list", "gallery_view", "gallery_add"},
+        # Game dev automation
+        frozenset({"playtest", "game dev", "automation", "test cycle",
+                   "run cycle", "full flight", "scenario", "game test"}):
+            {"gamedev_cycle", "gallery_list", "gallery_view"},
     }
 
     def get_tools_for_query(
