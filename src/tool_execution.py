@@ -1140,7 +1140,9 @@ async def execute_tool_block(
     (bash, python) so the agent loop can emit `tool_progress` SSE
     events while the command is in flight. Ignored by other tools.
     """
+    from src.dyad_mailbox import do_dyad_send, do_dyad_receive
     from src.tool_implementations import (
+        do_ask_claude,
         do_create_document, do_update_document, do_edit_document,
         do_suggest_document, do_search_chats, do_manage_tasks,
         do_manage_skills, do_api_call, do_manage_endpoints,
@@ -1453,6 +1455,15 @@ async def execute_tool_block(
     elif tool == "gamedev_cycle":
         desc = "gamedev_cycle"
         result = await do_gamedev_cycle(content, owner=owner)
+    elif tool == "ask_claude":
+        desc = "ask_claude"
+        result = await do_ask_claude(content, owner=owner)
+    elif tool == "dyad_send":
+        desc = "dyad_send"
+        result = await do_dyad_send(content, owner=owner)
+    elif tool == "dyad_receive":
+        desc = "dyad_receive"
+        result = await do_dyad_receive(content, owner=owner)
     elif tool == "edit_file":
         result = await _do_edit_file(content, workspace=workspace)
         desc = result.get("output") or result.get("error") or "edit_file"

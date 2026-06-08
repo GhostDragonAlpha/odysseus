@@ -1245,6 +1245,52 @@ FUNCTION_TOOL_SCHEMAS = [
             }
         }
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "ask_claude",
+            "description": "Ask Claude Code a question or give it a task. Use for complex reasoning, code generation, research, code analysis, or any task that benefits from Claude's advanced capabilities.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "prompt": {"type": "string", "description": "The prompt/question to send to Claude Code"},
+                    "max_tokens": {"type": "integer", "description": "Max tokens in response (default: 4096, max: 32768)"},
+                    "files": {"type": "array", "items": {"type": "string"}, "description": "Optional file paths to include as context"}
+                },
+                "required": ["prompt"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "dyad_send",
+            "description": "Send a message through the DYAD mailbox to Claude Code or another recipient. Use for complex multi-step tasks where you need Claude to work asynchronously and report back. The mailbox can hold larger payloads than a direct ask_claude call.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "prompt": {"type": "string", "description": "The task/prompt to send"},
+                    "recipient": {"type": "string", "enum": ["claude", "user", "unreal"], "description": "Who should process this (default: claude)"},
+                    "files": {"type": "array", "items": {"type": "string"}, "description": "File paths to include as context"},
+                    "kind": {"type": "string", "enum": ["task", "request", "query"], "description": "Message kind (default: task)"}
+                },
+                "required": ["prompt"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "dyad_receive",
+            "description": "Read messages from the DYAD mailbox. Shows pending messages by default, or a specific message by ID. Use to check if Claude Code has completed a task you sent via dyad_send.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "message_id": {"type": "string", "description": "Specific message ID to read (omit to list all pending/recent)"}
+                }
+            }
+        }
+    },
 ]
 
 # ---------------------------------------------------------------------------

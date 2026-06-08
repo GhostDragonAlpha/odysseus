@@ -61,6 +61,10 @@ TOOL_TAGS = {"bash", "python", "web_search", "web_fetch", "read_file", "write_fi
              "gallery_add", "gallery_list", "gallery_view",
              # Game dev automation workflow
              "gamedev_cycle",
+             # Ask Claude — native Claude Code bridge tool
+             "ask_claude",
+             # DYAD Mailbox — bidirectional file-based messaging
+             "dyad_send", "dyad_receive",
              # Generic loopback to any UI-button endpoint (cookbook,
              # gallery, email folders, etc.) — agent uses this when
              # there's no named tool wrapper for the action.

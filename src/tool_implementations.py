@@ -4321,7 +4321,7 @@ async def do_manage_research(content: str, owner: Optional[str] = None) -> Dict:
         args = {}
     action = (args.get("action") or "list").lower()
     rid = (args.get("id") or args.get("session_id") or args.get("research_id") or "").strip()
-    data_dir = _Path("data/deep_research")
+    data_dir = Path("data/deep_research")
 
     # SECURITY: the research id is interpolated straight into a filesystem
     # path (data/deep_research/<rid>.json) for read AND delete. Without this
@@ -4770,3 +4770,57 @@ async def do_gamedev_cycle(content: str, owner: Optional[str] = None) -> Dict:
     except Exception as e:
         return {"error": f"Game dev cycle failed: {e}", "exit_code": 1}
 
+
+# ── Ask Claude ──
+
+async def do_ask_claude(content: str, owner: Optional[str] = None) -> Dict:
+    """Send a prompt to Claude Code CLI in a visible window and return the response.
+    Use for complex reasoning, code analysis, code generation, or
+    any task that benefits from Claude's advanced capabilities.
+
+    JSON args: {prompt, max_tokens?, files?}
+    """
+    import subprocess, tempfile, os, json as _json
+    from pathlib import Path
+
+    try:
+        args = _parse_tool_args(content) if content.strip().startswith("{") else {}
+    except ValueError:
+        args = {}
+    if not isinstance(args, dict):
+        args = {}
+
+    prompt = args.get("prompt", "")
+    if not prompt:
+        return {"error": "prompt is required", "exit_code": 1}
+
+    file_paths = args.get("files", []) or []
+
+    full_prompt = prompt
+    if file_paths:
+        full_prompt += "\n\n## Files\n"
+        for fp in file_paths[:10]:
+            p = Path(fp)
+            if p.exists():
+                full_prompt += f"\n--- {fp} ---\n```\n{p.read_text(encoding='utf-8', errors='replace')[:5000]}\n```\n"
+
+    claude_exe = "C:/Users/allen/node-portable/node-v20.17.0-win-x64/node_modules/@anthropic-ai/claude-code/bin/claude.exe"
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            claude_exe, "-p", full_prompt, "--print",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env={**__import__("os").environ, "CLAUDE_CODE_HEADLESS": "1"},
+        )
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=120)
+        output = stdout.decode().strip() or stderr.decode().strip() or "[No output]"
+        return {"output": output[:32000], "exit_code": 0}
+    except asyncio.TimeoutError:
+        if proc:
+            proc.kill()
+        return {"error": "Claude timed out after 120s", "exit_code": 1}
+    except FileNotFoundError:
+        return {"error": "Claude executable not found", "exit_code": 1}
+    except Exception as e:
+        return {"error": str(e), "exit_code": 1}
