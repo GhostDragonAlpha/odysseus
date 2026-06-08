@@ -1570,7 +1570,7 @@ class TaskScheduler:
         """Run the full agent loop with tool access, collecting the final text."""
         from src.agent_loop import stream_agent_loop
 
-        system_content = system_prompt or "You are a helpful assistant executing a scheduled task. Use available tools to complete the task thoroughly."
+        system_content = system_prompt or "You are a helpful assistant executing a scheduled task. Use available tools to complete the task thoroughly. If your task involves the DYAD mailbox, call dyad_receive to check for messages and dyad_send to respond."
         user_content = override_user_message or task.prompt
         messages = [
             {"role": "system", "content": system_content},

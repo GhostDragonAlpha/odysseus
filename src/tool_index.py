@@ -83,6 +83,8 @@ ASSISTANT_ALWAYS_AVAILABLE = frozenset({
     "create_document", "update_document",
     "resolve_contact", "search_chats",
     "api_call",  # For Miniflux/Gitea/Linkding/etc. integrations
+    # DYAD mailbox — bidirectional file-based messaging with Claude Code.
+    "dyad_send", "dyad_receive",
     # Core UI control (toggles, open panels, switch model/mode, themes).
     # Always available so vague follow-ups ("now make it playful", "make it
     # darker") that don't repeat a theme/UI keyword still keep the tool in
