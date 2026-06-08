@@ -118,6 +118,8 @@ KNOWN_CONTEXT_WINDOWS = {
     'o4-mini': 200000,
 
     # --- DeepSeek ---
+    'deepseek-v4-pro': 1048576,
+    'deepseek-v4-flash': 1048576,
     'deepseek-chat': 64000,
     'deepseek-coder': 64000,
     'deepseek-reasoner': 64000,
@@ -158,6 +160,7 @@ KNOWN_CONTEXT_WINDOWS = {
     'llama-3': 131072,
 
     # --- Qwen ---
+    'qwen3.6': 200000,
     'qwen3': 131072,
     'qwen2.5': 131072,
     'qwen2': 32768,

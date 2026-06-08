@@ -27,13 +27,22 @@ LOOP_LOG_DIR.mkdir(parents=True, exist_ok=True)
 _active_cycles: dict[str, dict[str, Any]] = {}
 _completed_cycles: list[dict[str, Any]] = []
 
-SCENARIOS = [
-    {"id": "FullFlight", "label": "Full Flight", "desc": "General flight systems test"},
-    {"id": "Combat", "label": "Combat", "desc": "Weapons and combat systems"},
-    {"id": "OrbitalInsertion", "label": "Orbital Insertion", "desc": "Orbital mechanics test"},
-    {"id": "AtmosphericEntry", "label": "Atmospheric Entry", "desc": "Re-entry and landing"},
-    {"id": "FreeFlight", "label": "Free Flight", "desc": "Open sandbox exploration"},
-]
+# Dynamic scenarios loaded from scenario system
+def _get_scenarios():
+    """Load scenarios from the modular scenario system."""
+    try:
+        from src.scenario_system import list_scenarios
+        return list_scenarios()
+    except Exception:
+        return [
+            {"id": "FullFlight", "name": "Full Flight", "description": "General flight systems test",
+             "category": "gameplay", "checks": 5, "screenshots": 5, "tags": ["flight", "orbital"]},
+            {"id": "Combat", "name": "Combat", "description": "Weapons and combat systems",
+             "category": "gameplay", "checks": 4, "screenshots": 4, "tags": ["combat", "weapons"]},
+            {"id": "OrbitalInsertion", "name": "OrbitalInsertion", "description": "Orbital mechanics",
+             "category": "gameplay", "checks": 3, "screenshots": 3, "tags": ["orbital"]},
+        ]
+SCENARIOS = _get_scenarios()
 
 
 def _project_status() -> dict[str, Any]:

@@ -314,8 +314,8 @@ def _resolve_tool_path_in_workspace(workspace: str, raw_path: str) -> str:
 # The user can cancel sooner via the chat stop button — when the
 # SSE stream is torn down, the asyncio task running the subprocess
 # gets cancelled and the subprocess is killed by the finally block.
-DEFAULT_BASH_TIMEOUT = 60 * 60     # 1 hour
-DEFAULT_PYTHON_TIMEOUT = 60 * 60
+DEFAULT_BASH_TIMEOUT = 300     # 5 minutes — hard cap on shell commands
+DEFAULT_PYTHON_TIMEOUT = 300
 
 # How often to push a progress event while a long-running subprocess
 # is still in flight. The frontend cares about "alive" more than
